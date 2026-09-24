@@ -27,7 +27,7 @@ FROM docker.io/cachyos/cachyos:latest AS base
 
 FROM base AS bootc-builder
 
-RUN pacman -Syu --noconfirm \
+RUN pacman -Syu --noconfirm --disable-sandbox \
         make \
         git \
         rust \
@@ -65,7 +65,7 @@ RUN grep "= */var" /etc/pacman.conf | \
         -e "s@= */var@= /usr/lib/sysimage@g" \
         -e "/DownloadUser/d" \
         /etc/pacman.conf
-RUN pacman -Syu --noconfirm
+RUN pacman -Syu --noconfirm --disable-sandbox
 
 
 #
@@ -74,7 +74,7 @@ RUN pacman -Syu --noconfirm
 # --------------------------------------------------------------------------
 #
 
-RUN pacman -S --noconfirm \
+RUN pacman -S --noconfirm --disable-sandbox \
         bubblewrap \
         dracut \
         linux-cachyos \
