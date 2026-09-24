@@ -15,8 +15,9 @@
 # implementation for the bootc-specific filesystem and initramfs setup.
 #
 
-FROM docker.io/archlinux/archlinux:latest AS base
-
+FROM cachyos/cachyos:latest AS base
+# brings along:
+# git, openssh, curl, pacman-contrib, sudo, cachyos-hooks and others.
 #
 # --------------------------------------------------------------------------
 # Build bootc from current upstream source.
@@ -34,38 +35,14 @@ RUN pacman -Syu --noconfirm \
         glibc \
         pkgconf \
         clang \
-        base-devel
-
-RUN pacman-key --recv-keys \
-        63191CE94183098689CAB8DB7EF137EC935B0EAF \
-        68D21823342A13683AEB3E4EFB4C685B5DC1C13E && \
-    pacman-key --lsign-key 63191CE94183098689CAB8DB7EF137EC935B0EAF && \
-    pacman-key --lsign-key 68D21823342A13683AEB3E4EFB4C685B5DC1C13E
-
-RUN useradd -m builder && \
-    echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-
-USER builder
-
-WORKDIR /home/builder
-
-# need to build from aur because we aren't cachyos in the builder
-RUN git clone https://aur.archlinux.org/libsepol.git && \
-    cd libsepol && \
-    makepkg -si --noconfirm
-
-RUN git clone https://aur.archlinux.org/libselinux.git && \
-    cd libselinux && \
-    makepkg -si --noconfirm
-
-USER root
+        base-devel \
+        libselinux
 
 WORKDIR /home/build
 
 RUN git clone https://github.com/bootc-dev/bootc.git .
 
 RUN make bin install-all DESTDIR=/output
-
 
 #
 # --------------------------------------------------------------------------
@@ -74,15 +51,6 @@ RUN make bin install-all DESTDIR=/output
 #
 
 FROM base AS system
-
-#
-# Bootstrap the CachyOS repository.
-#
-# We cannot install cachyos-keyring from the CachyOS repository until
-# pacman trusts that repository, so the initial signing key is imported
-# first. This is the same bootstrap mechanism used by CachyOS's current
-# container setup.
-#
 
 # bootc images keep pacman state in /usr/lib/sysimage rather than /var.
 # Move the existing Arch pacman state there and rewrite pacman.conf.
@@ -96,42 +64,6 @@ RUN grep "= */var" /etc/pacman.conf | \
         -e "s@= */var@= /usr/lib/sysimage@g" \
         -e "/DownloadUser/d" \
         /etc/pacman.conf
-
-RUN pacman -Syu --noconfirm \
-        curl
-
-RUN pacman-key --init && \
-    pacman-key --recv-keys \
-        F3B607488DB35A47 \
-        --keyserver keyserver.ubuntu.com && \
-    pacman-key --lsign-key F3B607488DB35A47
-
-#
-# Install the CachyOS repository definition and keyring.
-#
-# The mirrorlist is fetched from the current CachyOS PKGBUILD repository
-# rather than embedding a stale copy in this image.
-#
-
-RUN curl -fsSL \
-        https://raw.githubusercontent.com/CachyOS/CachyOS-PKGBUILDS/master/cachyos-mirrorlist/cachyos-mirrorlist \
-        -o /etc/pacman.d/cachyos-mirrorlist && \
-    printf '\n[cachyos]\nInclude = /etc/pacman.d/cachyos-mirrorlist\n' \
-        >> /etc/pacman.conf
-
-RUN pacman -Sy --noconfirm \
-        cachyos-keyring \
-        cachyos-mirrorlist \
-        cachyos-hooks \
-        cachyos-settings
-
-#
-# Upgrade the complete system using the rolling Arch + CachyOS
-# repositories.
-#
-# This is intentionally NOT version-pinned.
-#
-
 RUN pacman -Syu --noconfirm
 
 
@@ -142,7 +74,6 @@ RUN pacman -Syu --noconfirm
 #
 
 RUN pacman -S --noconfirm \
-        base \
         bubblewrap \
         dracut \
         linux-cachyos \
@@ -155,9 +86,6 @@ RUN pacman -S --noconfirm \
         skopeo \
         dbus \
         dbus-glib \
-        glib2 \
-        shadow \
-        openssh \
         libselinux
 
 #
@@ -166,7 +94,6 @@ RUN pacman -S --noconfirm \
 
 RUN pacman -S --clean --noconfirm
 
-
 #
 # --------------------------------------------------------------------------
 # Install bootc
@@ -174,7 +101,6 @@ RUN pacman -S --clean --noconfirm
 #
 
 COPY --from=bootc-builder /output /
-
 
 #
 # --------------------------------------------------------------------------
@@ -200,7 +126,6 @@ RUN systemctl enable \
 RUN echo "uninitialized" > /etc/machine-id && \
     ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 
-
 #
 # --------------------------------------------------------------------------
 # Default wired networking
@@ -218,7 +143,6 @@ RUN mkdir -p /usr/lib/systemd/network && \
     printf '[Match]\nType=ether\n\n[Network]\nDHCP=yes\n' \
         > /usr/lib/systemd/network/20-wired.network
 
-
 #
 # systemd-resolved creates its runtime stub at boot. tmpfiles creates the
 # /etc/resolv.conf symlink because container builds cannot safely replace
@@ -228,7 +152,6 @@ RUN mkdir -p /usr/lib/systemd/network && \
 RUN printf \
         'L! /etc/resolv.conf - - - - /run/systemd/resolve/stub-resolv.conf\n' \
         > /usr/lib/tmpfiles.d/resolv-conf.conf
-
 
 #
 # --------------------------------------------------------------------------
