@@ -34,7 +34,6 @@ RUN pacman -Syu --noconfirm \
         ostree \
         glibc \
         pkgconf \
-        go \
         clang \
         base-devel
 
@@ -45,17 +44,19 @@ USER builder
 
 WORKDIR /home/builder
 
-RUN git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm
+RUN git clone https://aur.archlinux.org/libsepol.git && \
+    cd libsepol && \
+    makepkg -si --noconfirm --skippgpcheck
 
-RUN yay -S --noconfirm --answerdiff None libselinux
+RUN git clone https://aur.archlinux.org/libselinux.git && \
+    cd libselinux && \
+    makepkg -si --noconfirm --skippgpcheck
 
 USER root
 
 WORKDIR /home/build
 
-RUN git clone \
-        https://github.com/bootc-dev/bootc.git \
-        .
+RUN git clone https://github.com/bootc-dev/bootc.git .
 
 RUN make bin install-all DESTDIR=/output
 
@@ -154,8 +155,7 @@ RUN pacman -S --noconfirm \
         libselinux
 
 #
-# Remove cached package archives. The pacman database itself is relocated
-# below into /usr/lib/sysimage.
+# Remove cached package archives.
 #
 
 RUN pacman -S --clean --noconfirm
@@ -332,6 +332,7 @@ RUN printf \
 
 COPY etc/ /etc/
 
+RUN rm -f /etc/.gitkeep
 RUN rm -f /etc/pacman.d/gnupg/S.*
 
 #
