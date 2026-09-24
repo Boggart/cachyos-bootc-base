@@ -245,12 +245,8 @@ RUN mkdir -p /usr/lib/dracut/dracut.conf.d && \
         'reproducible=yes\nhostonly=no\ncompress=zstd\nadd_dracutmodules+=" bootc "\n' \
         > /usr/lib/dracut/dracut.conf.d/30-bootc-container.conf
 
-RUN dracut --force \
-        "$(find /usr/lib/modules -maxdepth 1 -type d \
-            ! -name modules \
-            ! -name '*.img' \
-            | tail -n 1)/initramfs.img"
-
+RUN kernel="$(ls -1 /usr/lib/modules | head -n1)" && \
+    dracut --force "/usr/lib/modules/${kernel}/initramfs.img"
 
 #
 # --------------------------------------------------------------------------
@@ -333,7 +329,6 @@ RUN printf \
 COPY etc/ /etc/
 
 RUN rm -f /etc/.gitkeep
-RUN rm -f /etc/pacman.d/gnupg/S.*
 
 #
 # --------------------------------------------------------------------------
@@ -347,13 +342,15 @@ RUN bootc container lint
 
 FROM quay.io/coreos/chunkah:latest AS chunker
 
-
 RUN --mount=type=bind,target=/run/src,rw \
     --mount=from=system,target=/chunkah,ro \
     chunkah build \
+    --prune /sysroot/ \
     --max-layers 128 \
     --skip-special-files \
     --label "containers.bootc=1" \
-    --output oci:/run/src/out
+    --label "ostree.commit-" \
+    --label "ostree.final-diffid-" \
+    --output oci:/run/src/out 
 
 FROM oci:out
