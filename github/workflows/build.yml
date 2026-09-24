@@ -1,0 +1,68 @@
+name: Scheduled Bootc Base Build via build.sh
+
+on:
+  schedule:
+    # Runs every Sunday at 00:00 UTC
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+    # Allows you to manually trigger the build anytime from the GitHub UI
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/cachyos-bootc-base
+
+jobs:
+  run-build-script:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        run: |
+          # Use standard host podman to log in so buildah can inherit the auth token
+          podman login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
+
+      - name: Run local build script
+        run: |
+          chmod +x ./build.sh
+          # Disabling pseudo-TTY (-it) support for automation environments
+          sed -i 's/podman run --rm -it/podman run --rm/g' ./build.sh
+          ./build.sh
+
+      - name: Push Exported OCI Tar to GHCR
+        run: |
+          # 1. Force lowercase for the image name
+          LOWER_IMAGE=$(echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+          TIMESTAMP=$(date +'%Y%m%d')
+          TARGET_LATEST="${LOWER_IMAGE}:latest"
+          TARGET_TIMESTAMP="${LOWER_IMAGE}:${TIMESTAMP}"
+
+          # 2. Match your script's exact output path (./dist/cachyos-base.tar)
+          TAR_PATH="./dist/cachyos-base.tar"
+
+          if [ ! -f "$TAR_PATH" ]; then
+            echo "❌ Error: Expected tar archive not found at $TAR_PATH"
+            exit 1
+          fi
+
+          echo "🚀 Found OCI archive at: $TAR_PATH"
+          echo "📦 Pushing as: $TARGET_LATEST"
+          echo "📦 Pushing snapshot as: $TARGET_TIMESTAMP"
+
+          # 3. Push both tags to GHCR
+          podman push oci-archive:$TAR_PATH $TARGET_LATEST
+          podman push oci-archive:$TAR_PATH $TARGET_TIMESTAMP
+
+      - name: Prune Old Images (Keep 5 Most Recent Snapshots)
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          packages: ${{ env.IMAGE_NAME }}
+          exclude-tags: 'latest'
+          keep-n-tagged: 5
+          delete-untagged: true
