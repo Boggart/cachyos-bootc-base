@@ -17,7 +17,6 @@
 
 FROM docker.io/archlinux/archlinux:latest AS base
 
-
 #
 # --------------------------------------------------------------------------
 # Build bootc from current upstream source.
@@ -37,6 +36,12 @@ RUN pacman -Syu --noconfirm \
         clang \
         base-devel
 
+RUN pacman-key --recv-keys \
+        63191CE94183098689CAB8DB7EF137EC935B0EAF \
+        68D21823342A13683AEB3E4EFB4C685B5DC1C13E && \
+    pacman-key --lsign-key 63191CE94183098689CAB8DB7EF137EC935B0EAF && \
+    pacman-key --lsign-key 68D21823342A13683AEB3E4EFB4C685B5DC1C13E
+
 RUN useradd -m builder && \
     echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
@@ -44,13 +49,14 @@ USER builder
 
 WORKDIR /home/builder
 
+# need to build from aur because we aren't cachyos in the builder
 RUN git clone https://aur.archlinux.org/libsepol.git && \
     cd libsepol && \
-    makepkg -si --noconfirm --skippgpcheck
+    makepkg -si --noconfirm
 
 RUN git clone https://aur.archlinux.org/libselinux.git && \
     cd libselinux && \
-    makepkg -si --noconfirm --skippgpcheck
+    makepkg -si --noconfirm
 
 USER root
 
@@ -291,6 +297,8 @@ RUN ln -sT sysroot/ostree /ostree && \
     ln -sT var/mnt /mnt && \
     ln -sT var/home /home
 #    ln -sT ../var/usrlocal /usr/local
+# above commented out because you're not supposed to do it if the image
+# will be derived from or something
 
 RUN printf \
         'd /var/opt 0755 root root -\n' \
@@ -337,7 +345,6 @@ RUN rm -f /etc/.gitkeep
 #
 
 LABEL containers.bootc="1"
-
 RUN bootc container lint
 
 FROM quay.io/coreos/chunkah:latest AS chunker
@@ -353,4 +360,5 @@ RUN --mount=type=bind,target=/run/src,rw \
     --label "ostree.final-diffid-" \
     --output oci:/run/src/out 
 
+# no bootc lint after chunkah because that will fuck up the layers or something
 FROM oci:out
