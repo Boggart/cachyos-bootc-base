@@ -15,9 +15,10 @@
 # implementation for the bootc-specific filesystem and initramfs setup.
 #
 
-FROM cachyos/cachyos:latest AS base
+FROM docker.io/cachyos/cachyos:latest AS base
 # brings along:
 # git, openssh, curl, pacman-contrib, sudo, cachyos-hooks and others.
+
 #
 # --------------------------------------------------------------------------
 # Build bootc from current upstream source.
