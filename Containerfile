@@ -103,7 +103,7 @@ RUN useradd -m builder && \
 USER builder
 RUN yay -S --noconfirm bootupd
 
-Switch back to root and clean up the temporary user
+# Switch back to root and clean up the temporary user
 USER root
 RUN userdel -r builder && \
     rm /etc/sudoers.d/builder
