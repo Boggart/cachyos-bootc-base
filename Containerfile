@@ -281,6 +281,11 @@ COPY etc/ /etc/
 
 RUN rm -f /etc/.gitkeep
 
+# If you don't change the root password in a
+# derived image or at first run, you deserve
+# whatever happens.
+RUN echo 'root:root' | chpasswd
+
 #
 # --------------------------------------------------------------------------
 # bootc image identification and validation
