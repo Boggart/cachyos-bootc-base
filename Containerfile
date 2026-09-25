@@ -74,6 +74,8 @@ RUN pacman -Syu --noconfirm --disable-sandbox
 # --------------------------------------------------------------------------
 #
 
+# bootc new version forces libselinux on you
+# and bootc install to disk needs podman
 RUN pacman -S --noconfirm --disable-sandbox \
         bubblewrap \
         dracut \
@@ -87,7 +89,8 @@ RUN pacman -S --noconfirm --disable-sandbox \
         skopeo \
         dbus \
         dbus-glib \
-        libselinux
+        libselinux \
+        podman
 
 #
 # Remove cached package archives.
