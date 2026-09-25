@@ -90,7 +90,20 @@ RUN pacman -S --noconfirm --disable-sandbox \
         dbus \
         dbus-glib \
         libselinux \
-        podman
+        podman \
+        yay \
+        efibootmgr
+
+# Create a temporary builder user with passwordless sudo
+RUN useradd -m builder && \
+    echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
+USER builder
+RUN yay -S --noconfirm --disable-sandbox bootupd
+
+Switch back to root and clean up the temporary user
+USER root
+RUN userdel -r builder && \
+    rm /etc/sudoers.d/builder
 
 #
 # Remove cached package archives.
@@ -246,7 +259,8 @@ RUN printf \
         > /usr/lib/ostree/prepare-root.conf
 
 # Strip the extra dots from VERSION_ID to satisfy osbuild's strict formatting rules
-RUN sed -i 's/^VERSION_ID=.*/VERSION_ID="1.0"/' /etc/os-release
+# RUN sed -i 's/^VERSION_ID=.*/VERSION_ID="1.0"/' /etc/os-release
+# use bootc install to disk directly instead of bootc-image-builder
 
 #
 # --------------------------------------------------------------------------
