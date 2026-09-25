@@ -60,7 +60,6 @@ jobs:
         uses: dataaxiom/ghcr-cleanup-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          packages: ${{ env.IMAGE_NAME }}
           exclude-tags: 'latest'
           keep-n-tagged: 5
           delete-untagged: true
