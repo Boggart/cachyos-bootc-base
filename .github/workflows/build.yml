@@ -49,21 +49,12 @@ jobs:
 
           echo "🚀 Found OCI archive at: $TAR_PATH"
           
-          # 1. Load the archive into the local podman datastore
-          echo "📥 Loading OCI archive into Podman..."
-          podman load -i $TAR_PATH
+          # Use Skopeo to copy directly from the archive to the remote registry
+          echo "📦 Pushing to GHCR as: $TARGET_LATEST"
+          skopeo copy oci-archive:$TAR_PATH docker://$TARGET_LATEST
           
-          # 2. The loaded image name might differ from your target, so tag the loaded image
-          # (Assuming 'localhost/cachyos-bootc:chunked' is the tag built inside build.sh)
-          podman tag localhost/cachyos-bootc:chunked $TARGET_LATEST
-          podman tag localhost/cachyos-bootc:chunked $TARGET_TIMESTAMP
-
-          echo "📦 Pushing as: $TARGET_LATEST"
-          podman push $TARGET_LATEST
-
-          echo "📦 Pushing snapshot as: $TARGET_TIMESTAMP"
-          podman push $TARGET_TIMESTAMP
-
+          echo "📦 Pushing snapshot to GHCR as: $TARGET_TIMESTAMP"
+          skopeo copy oci-archive:$TAR_PATH docker://$TARGET_TIMESTAMP
 
       - name: Prune Old Images (Keep 5 Most Recent Snapshots)
         uses: dataaxiom/ghcr-cleanup-action@v1
