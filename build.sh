@@ -11,6 +11,7 @@ podman run --rm -it \
   sh -euxc '
     buildah build \
       --skip-unused-stages=false \
+      -v /run/src:/run/src \
       -f Containerfile \
       -t localhost/cachyos-bootc:chunked \
       .
