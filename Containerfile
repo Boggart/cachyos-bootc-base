@@ -242,6 +242,8 @@ RUN printf \
         '[composefs]\nenabled = yes\n[sysroot]\nreadonly = true\n' \
         > /usr/lib/ostree/prepare-root.conf
 
+# Strip the extra dots from VERSION_ID to satisfy osbuild's strict formatting rules
+RUN sed -i 's/^VERSION_ID=.*/VERSION_ID="1.0"/' /etc/os-release
 
 #
 # --------------------------------------------------------------------------
