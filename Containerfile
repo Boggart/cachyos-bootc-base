@@ -53,6 +53,9 @@ RUN make bin install-all DESTDIR=/output
 
 FROM base AS system
 
+RUN sed -i '/^\[options\]/a DisableSandbox' /etc/pacman.conf && \
+    sed -i 's/\bcheck\b/!check/g' /etc/makepkg.conf
+
 # bootc images keep pacman state in /usr/lib/sysimage rather than /var.
 # Move the existing Arch pacman state there and rewrite pacman.conf.
 RUN grep "= */var" /etc/pacman.conf | \
@@ -65,7 +68,7 @@ RUN grep "= */var" /etc/pacman.conf | \
         -e "s@= */var@= /usr/lib/sysimage@g" \
         -e "/DownloadUser/d" \
         /etc/pacman.conf
-RUN pacman -Syu --noconfirm --disable-sandbox
+RUN pacman -Syu --noconfirm
 
 
 #
@@ -76,7 +79,7 @@ RUN pacman -Syu --noconfirm --disable-sandbox
 
 # bootc new version forces libselinux on you
 # and bootc install to disk needs podman
-RUN pacman -S --noconfirm --disable-sandbox \
+RUN pacman -S --noconfirm \
         bubblewrap \
         dracut \
         linux-cachyos \
@@ -98,7 +101,7 @@ RUN pacman -S --noconfirm --disable-sandbox \
 RUN useradd -m builder && \
     echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
 USER builder
-RUN yay -S --noconfirm --disable-sandbox bootupd
+RUN yay -S --noconfirm bootupd
 
 Switch back to root and clean up the temporary user
 USER root
