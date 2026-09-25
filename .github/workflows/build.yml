@@ -36,13 +36,10 @@ jobs:
 
       - name: Push Exported OCI Tar to GHCR
         run: |
-          # 1. Force lowercase for the image name
           LOWER_IMAGE=$(echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
           TIMESTAMP=$(date +'%Y%m%d')
           TARGET_LATEST="${LOWER_IMAGE}:latest"
           TARGET_TIMESTAMP="${LOWER_IMAGE}:${TIMESTAMP}"
-
-          # 2. Match your script's exact output path (./dist/cachyos-base.tar)
           TAR_PATH="./dist/cachyos-base.tar"
 
           if [ ! -f "$TAR_PATH" ]; then
@@ -51,12 +48,22 @@ jobs:
           fi
 
           echo "🚀 Found OCI archive at: $TAR_PATH"
-          echo "📦 Pushing as: $TARGET_LATEST"
-          echo "📦 Pushing snapshot as: $TARGET_TIMESTAMP"
+          
+          # 1. Load the archive into the local podman datastore
+          echo "📥 Loading OCI archive into Podman..."
+          podman load -i $TAR_PATH
+          
+          # 2. The loaded image name might differ from your target, so tag the loaded image
+          # (Assuming 'localhost/cachyos-bootc:chunked' is the tag built inside build.sh)
+          podman tag localhost/cachyos-bootc:chunked $TARGET_LATEST
+          podman tag localhost/cachyos-bootc:chunked $TARGET_TIMESTAMP
 
-          # 3. Push both tags to GHCR
-          podman push oci-archive:$TAR_PATH $TARGET_LATEST
-          podman push oci-archive:$TAR_PATH $TARGET_TIMESTAMP
+          echo "📦 Pushing as: $TARGET_LATEST"
+          podman push $TARGET_LATEST
+
+          echo "📦 Pushing snapshot as: $TARGET_TIMESTAMP"
+          podman push $TARGET_TIMESTAMP
+
 
       - name: Prune Old Images (Keep 5 Most Recent Snapshots)
         uses: dataaxiom/ghcr-cleanup-action@v1
